@@ -20,6 +20,7 @@ Jyotirmoy Bhattacharya, 2015-04-22
 #include <string>
 #include <sstream>
 #include <cassert>
+#include <algorithm>
 
 using namespace std;
 
@@ -44,19 +45,21 @@ void continue_tour_seq(const Graph &g,
                                 int remain,
                                 CB &cb)
 {
-  auto last = path.back();
+  const auto &neighs = g.neighbours[path.back()];
 
-  for (auto n: g.neighbours[last]){
-
-    if (n==0 && remain==0){
+  if (remain==0){
+    auto res = find(neighs.begin(),neighs.end(),0);
+    if (res!=neighs.end()){ 
 #pragma omp critical
-      {
+      {   
         cb(path);
       }
-      continue;
     }
+    return;
+  }
 
-    if (visited[n])
+  for (auto n: neighs){
+   if (visited[n])
       continue;
       
     visited[n]=1;
@@ -77,9 +80,7 @@ void continue_tour_par(const Graph &g,
                        CB &cb)
 {
   assert(remain>0);
-  auto last = path.back();
-
-  for (auto n: g.neighbours[last]){
+  for (auto n: g.neighbours[path.back()]){
 
     if (visited[n])
       continue;
