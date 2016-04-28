@@ -6,3 +6,6 @@ Each executable expects to be called with two arguments
 chessboard.
 
 The C++ and Haskell versions are multithreaded.
+
+The 3×12 board is a small example which runs in reasonable
+time.
