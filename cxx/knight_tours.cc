@@ -184,7 +184,7 @@ int main(int argc,char *argv[])
     }
     cout<<'\n';
   }
-  unsigned long count;
+  unsigned long count=0;
   auto printer =
     [&g,&count](const vector<int> &p){
     print_path(cout,g,p);cout<<'\n';
