@@ -32,10 +32,10 @@ import Data.Char (chr,ord)
 import qualified Data.Vector.Unboxed as V
 import qualified Data.Vector as BV
 import qualified Data.Vector.Unboxed.Mutable as MV
-import Data.Vector.Generic ((!),(//),
+import Data.Vector.Generic ((!),(//),unsafeIndex,
                             toList,generate,
                             replicate,freeze,thaw)
-import Data.Vector.Generic.Mutable (read,write)
+import Data.Vector.Generic.Mutable (read,write,unsafeRead,unsafeWrite)
 
 import Control.Monad.ST
 import Control.Monad
@@ -93,19 +93,20 @@ completeHamCyclePar g !depth !remain !path !visited
       runST $ do
         p <- thaw path
         v <- thaw visited
-        completeHamCycleSeq g depth remain p v
+        completeHamCycleSeq g remain p v
   where
     last=  path ! (depth-1)
     choices = (gNeighs g) ! last
 
 -- Try to complete a path into a Hamiltonian cycles
 --   (sequential version)
-completeHamCycleSeq::Graph->Int->Int
+completeHamCycleSeq::Graph->Int
                    ->MV.MVector s Int->MV.MVector s Bool
                    ->ST s [V.Vector Int]
-completeHamCycleSeq g !depth !remain !path !visited = do
-  last <- read path (depth-1)
-  let !choices = (gNeighs g) ! last
+completeHamCycleSeq g !remain !path !visited = do
+  let depth = gNVerts g - remain
+  last <- unsafeRead path (depth-1)
+  let !choices = (gNeighs g) `unsafeIndex` last
   if remain == 0 then
     if 0 `elem` choices then
       do
@@ -115,14 +116,17 @@ completeHamCycleSeq g !depth !remain !path !visited = do
       return []
   else
    do
-      validChoices <- filterM (\c-> not <$> read visited c) choices
-      children <- forM validChoices $ \c -> do
-        write path depth c
-        write visited c True
-        ans <- completeHamCycleSeq g (depth+1) (remain-1)
-          path visited
-        write visited c False
-        ans `pseq` (return ans)
+      children <- forM choices $ \c -> do
+        v <- unsafeRead visited c
+        if v then do
+          return []
+        else do
+          unsafeWrite path depth c
+          unsafeWrite visited c True
+          ans <- completeHamCycleSeq g (remain-1)
+                  path visited
+          unsafeWrite visited c False
+          ans `seq` (return ans)
       return $ concat children
 
 -- Make the graph corresponding to
