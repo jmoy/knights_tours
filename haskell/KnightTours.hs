@@ -21,28 +21,40 @@ by the author.
 
 module Main (main) where
 
+import Prelude hiding ((!),read,replicate)
+import qualified Prelude
+
 import Control.Parallel.Strategies
 import Control.Parallel
+
 import Data.Char (chr,ord)
+
 import qualified Data.Vector.Unboxed as V
 import qualified Data.Vector as BV
 import qualified Data.Vector.Unboxed.Mutable as MV
+import Data.Vector.Generic ((!),(//),
+                            toList,generate,
+                            replicate,freeze,thaw)
+import Data.Vector.Generic.Mutable (read,write)
+
 import Control.Monad.ST
 import Control.Monad
+
 import System.Environment (getArgs)
 
 main::IO ()
 main = do
-  [p,q] <- (map read) <$> getArgs
+  [p,q] <- (map Prelude.read) <$> getArgs
   guard (p>0 && q>0)
   let chessG = mkChessGraph p q
   let cycles = enumHamCycle chessG
   n <- countAndPrint 0 chessG cycles
   putStrLn $ "Total cycles = "++(show n)
   where
+    countAndPrint::Int->Graph->[V.Vector Int]->IO Int
     countAndPrint !accum g [] = return accum
     countAndPrint !accum g (c:cs) = do
-      putStrLn $ prettyPath g (V.toList c)
+      putStrLn $ prettyPath g (toList c)
       countAndPrint (accum+1) g cs
 
 data Graph = Graph{
@@ -54,10 +66,12 @@ data Graph = Graph{
 -- Enumerate all Hamiltonian cycles in the given graph
 enumHamCycle::Graph->[V.Vector Int]
 enumHamCycle g
-  = completeHamCyclePar g 1 (n - 1) (V.replicate n 0)
-       ((V.replicate n False) V.// [(0,True)])
+  = completeHamCyclePar g 1 (n - 1)
+                        path visited
   where
     n = gNVerts g
+    path = replicate n 0
+    visited = (replicate n False) // [(0,True)]
 
 -- Try to complete a path into a Hamiltonian cycle
 --   (parallel version)
@@ -69,20 +83,20 @@ completeHamCyclePar g !depth !remain !path !visited
       if 0 `elem` choices then [path] else []
   | depth < 6 =
       concat $ withStrategy (evalList rpar)
-               [completeHamCyclePar g (depth+1) (remain-1)
-                (path V.// [(depth,c)])
-                (visited V.// [(c,True)])
-               | c <- choices,
-                 not $ visited V.! c
-               ]
+                [completeHamCyclePar g (depth+1) (remain-1)
+                 (path // [(depth,c)])
+                 (visited // [(c,True)])
+                | c <- choices,
+                  not $ visited ! c
+                ]
   | otherwise =
       runST $ do
-        p <- V.thaw path
-        v <- V.thaw visited
+        p <- thaw path
+        v <- thaw visited
         completeHamCycleSeq g depth remain p v
   where
-    last=  path V.! (depth-1)
-    choices = (gNeighs g) BV.! last
+    last=  path ! (depth-1)
+    choices = (gNeighs g) ! last
 
 -- Try to complete a path into a Hamiltonian cycles
 --   (sequential version)
@@ -90,24 +104,24 @@ completeHamCycleSeq::Graph->Int->Int
                    ->MV.MVector s Int->MV.MVector s Bool
                    ->ST s [V.Vector Int]
 completeHamCycleSeq g !depth !remain !path !visited = do
-  last <- MV.read path (depth-1)
-  let !choices = (gNeighs g) BV.! last
+  last <- read path (depth-1)
+  let !choices = (gNeighs g) ! last
   if remain == 0 then
     if 0 `elem` choices then
       do
-        ans <- V.freeze path
+        ans <- freeze path
         return [ans]
     else
       return []
   else
    do
-      validChoices <- filterM (\c-> not <$> MV.read visited c) choices
+      validChoices <- filterM (\c-> not <$> read visited c) choices
       children <- forM validChoices $ \c -> do
-        MV.write path depth c
-        MV.write visited c True
+        write path depth c
+        write visited c True
         ans <- completeHamCycleSeq g (depth+1) (remain-1)
           path visited
-        MV.write visited c False
+        write visited c False
         ans `pseq` (return ans)
       return $ concat children
 
@@ -116,8 +130,8 @@ completeHamCycleSeq g !depth !remain !path !visited = do
 mkChessGraph::Int->Int->Graph   
 mkChessGraph m n
   = Graph {gNVerts = nv,
-           gNames = BV.generate nv genName,
-           gNeighs = BV.generate nv genNeighs}
+           gNames = generate nv genName,
+           gNeighs = generate nv genNeighs}
   where
     nv = m*n
     deidx k = k `divMod` n
@@ -134,6 +148,6 @@ mkChessGraph m n
 
 -- Pretty print path in a graph
 prettyPath::Graph->[Int]->String
-prettyPath g  = concat . map ((gNames g) BV.!) 
+prettyPath g  = concat . map ((gNames g) !) 
 
 
