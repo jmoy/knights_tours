@@ -29,7 +29,6 @@ import Data.Char (chr,ord)
 import qualified Data.Set as S
 import qualified Data.Map.Strict as M
 
-import Control.Monad.ST
 import Control.Monad
 
 import System.Environment (getArgs)
