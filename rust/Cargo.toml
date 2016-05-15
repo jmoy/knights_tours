@@ -1,0 +1,6 @@
+[package]
+name = "knights"
+version = "0.1.0"
+authors = ["Jyotirmoy Bhattacharya <jyotirmoy@jyotirmoy.net>"]
+
+[dependencies]
