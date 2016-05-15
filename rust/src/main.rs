@@ -16,8 +16,8 @@ fn main()
   let mut count = 0;
   {
     let mut printer = |path:&Vec<usize>| {
-      for k in path {
-        print!("{}",g.vert_names[*k]);
+      for &k in path {
+        print!("{}",g.vert_names[k]);
       } 
       println!("");
       count += 1;
@@ -54,15 +54,15 @@ where F:FnMut(&Vec<usize>)
     return;
   }
   
-  for n in neighs {
-    if visited[*n] {
+  for &n in neighs {
+    if visited[n] {
       continue;
     }
       
-    visited[*n]=true;
-    path[depth]=*n;
+    visited[n]=true;
+    path[depth]=n;
     continue_tour(g,path,visited,remain-1,cb);
-    visited[*n]=false;
+    visited[n]=false;
   }
 }
 
